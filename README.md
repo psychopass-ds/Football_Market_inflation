@@ -27,6 +27,28 @@ This project tests two core ideas:
 * **Unexplained Variance (~47%):** Even with ensemble decision trees, nearly half of the variance in market values remains unexplained by on-pitch statistics alone.
 * **The Off-Pitch Gap:** The remaining gap confirms that transfer market pricing is heavily driven by factors outside standard match metrics—including contract length, brand marketability, commercial value, and media hype.
 
+## Part 2: Uncertainty Bands (Quantile Regression)
+
+Instead of a single point estimate, three `GradientBoostingRegressor(loss='quantile')`
+models (alpha = 0.1, 0.5, 0.9) give each player a valuation range. They use
+the same train/test split as Part 1 and are trained on the log1p target.
+Predictions are converted back to euros with `expm1`, which is valid because
+quantiles are preserved under monotonic transformations (means are not).
+
+![Valuation bands vs actual value](images/bands_plot.png)
+
+| Check | Result |
+|---|---|
+| Calibration, 10th percentile | 13.4% of actuals below the line (target 10%) |
+| Calibration, 50th percentile | 47.0% (target 50%) |
+| Calibration, 90th percentile | 83.5% (target 90%) |
+| Quantile crossing (pred_50 ≥ pred_90) | 5 of 351 players (1.4%) |
+| Median below actual, top 10% by value | 30 of 35 players (85.7%) |
+
+**Main finding:** the bands widen for expensive players, as hoped, but they
+are too low at the top. The 90th percentile line under-covers the upper tail,
+and the median underpredicts most top-10% players.
+
 * ## Limitations & Future Work
 
 ### Limitations
@@ -34,11 +56,13 @@ This project tests two core ideas:
 * **Single-League Scope:** Trained exclusively on Premier League data. Other leagues in the source dataset lacked sufficient player-season samples (~15–20 per season), making cross-league inflation comparisons unfeasible without broader data.
 * **Unexplained Variance (~47%):** The Random Forest captures ~53% of value variance. The missing signal is structural rather than statistical—driven by off-pitch variables like contract duration, transfer hype, brand marketability, and injury history.
 * **Data Thinness at Career Extremes:** Players aged 30+ are underrepresented in the sample, leading to higher prediction variance and lower reliability for veteran players compared to those in their 20s.
+* The bands are
+least reliable for high-value players, probably because reputation, contract
+and scarcity are not in the feature set.
 
 ---
 
 ### Future Work
 
-1. **Uncertainty Bands:** Implement quantile regression (10th, 50th, and 90th percentiles) to output a valuation range rather than a single point prediction, reflecting real-world financial risk modeling.
-2. **League Inflation Index:** Construct a season-by-season baseline (e.g., median value by position group) to track player valuation movements relative to macro market inflation over time.
-3. **Cross-League Expansion:** Incorporate balanced multi-league datasets to test whether performance-to-value models hold consistently across different European leagues.
+1. **League Inflation Index:** Construct a season-by-season baseline (e.g., median value by position group) to track player valuation movements relative to macro market inflation over time.
+2. **Cross-League Expansion:** Incorporate balanced multi-league datasets to test whether performance-to-value models hold consistently across different European leagues.
